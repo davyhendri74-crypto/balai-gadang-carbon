@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balai Gadang Carbon — Peta Elevasi</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root {
+  --green: #176b57;
+  --ink: #173b32;
+  --muted: #61766f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  color: var(--ink);
+  background: #f1f6f3;
+}
+
+header {
+  padding: 26px 22px;
+  color: white;
+  background: linear-gradient(120deg,#185b50,#4c958b);
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+h1 {
+  margin: 10px 0;
+  font-size: 30px;
+}
+
+header p {
+  line-height: 1.6;
+}
+
+main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 16px;
+}
+
+.card {
+  background: white;
+  border: 1px solid #dbe7e0;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+h2 {
+  font-size: 21px;
+  margin-top: 0;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+select, button {
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #c8d9d0;
+}
+
+button {
+  background: var(--green);
+  color: white;
+  border: none;
+}
+
+button.secondary {
+  background: #e5efe9;
+  color: var(--ink);
+}
+
+#map {
+  width: 100%;
+  height: 520px;
+  border-radius: 13px;
+  border: 1px solid #d4e1da;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+  gap: 12px;
+}
+
+.stat {
+  background: #f5faf7;
+  border: 1px solid #e1ece5;
+  padding: 14px;
+  border-radius: 13px;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.value {
+  font-size: 22px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.warning {
+  background: #fff8e8;
+  border-left: 4px solid #d49a32;
+  padding: 12px;
+  line-height: 1.6;
+}
+
+footer {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media(max-width:520px) {
+  main {
+    padding: 12px;
+  }
+
+  #map {
+    height: 460px;
+  }
+}
+
+@media print {
+  .controls,
+  .leaflet-control-zoom,
+  .leaflet-control-layers {
+    display: none !important;
+  }
+
+  #map {
+    height: 600px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="eyebrow">
+    LANDSCAPE CARBON MANAGEMENT SYSTEM
+  </div>
+
+  <h1>Balai Gadang Carbon</h1>
+
+  <p>
+    Peta interaktif kawasan KTH Balai Gadang dan
+    usulan HKm Saiba, Sungai Bangek, Padang.
+    Visualisasi elevasi dan topografi kawasan.
+  </p>
+</header>
+
+<main>
+
+<section class="card">
+  <h2>Wilayah analisis</h2>
+
+  <div class="controls">
+    <select id="regionSelect">
+      <option value="all">Semua wilayah</option>
+      <option value="kth">KTH Balai Gadang</option>
+      <option value="hkm">Usulan HKm Saiba</option>
+    </select>
+
+    <button id="showRegion">
+      Tampilkan kawasan
+    </button>
+
+    <button id="printBtn" class="secondary">
+      Cetak / PDF
+    </button>
+  </div>
+
+  <p class="note">
+    Pilih wilayah untuk menyorot batas kawasan.
+    Gunakan tombol lapisan di kanan atas peta
+    untuk mengganti peta dasar.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Peta GIS, elevasi & topografi</h2>
+
+  <div id="map"></div>
+
+  <p class="note">
+    Layer relief dan topografi berasal dari layanan peta
+    daring. Peta memerlukan koneksi internet.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Ringkasan kawasan</h2>
+
+  <div class="stats">
+
+    <div class="stat">
+      <div class="label">Luas kawasan</div>
+      <div class="value" id="areaValue">—</div>
+    </div>
+
+    <div class="stat">
+      <div class="label">Tutupan pohon</div>
+      <div class="value" id="treeValue">—</div>
+    </div>
+
+    <div class="stat">
+      <div class="label">Perkiraan luas tutupan pohon</div>
+      <div class="value" id="treeAreaValue">—</div>
+    </div>
+
+    <div class="stat">
+      <div class="label">Area selain tutupan pohon</div>
+      <div class="value" id="otherAreaValue">—</div>
+    </div>
+
+  </div>
+
+  <p id="regionLabel" class="note">
+    Memuat informasi kawasan...
+  </p>
+</section>
+
+<section class="card">
+  <h2>Informasi layer topografi</h2>
+
+  <p>
+    Layer yang tersedia:
+  </p>
+
+  <ul>
+    <li>Citra satelit</li>
+    <li>OpenStreetMap</li>
+    <li>Hillshade atau bayangan relief</li>
+    <li>Terrain atau visualisasi medan</li>
+    <li>Topografi dan kontur</li>
+    <li>Batas kawasan KTH dan HKm</li>
+  </ul>
+
+  <div class="warning">
+    <strong>Catatan:</strong>
+    Layer kemiringan lereng dalam derajat atau persen
+    belum tersedia. Untuk membuatnya secara akurat,
+    kita harus memperoleh data DEM dan mengolahnya
+    menggunakan QGIS. Halaman ini tidak mengarang
+    angka elevasi maupun kemiringan lereng.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Balai Gadang Carbon — Landscape Carbon Management System
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(async function() {
+
+  const map = L.map('map', {
+    zoomControl: true
+  }).setView([-0.85, 100.38], 12);
+
+  // Peta OpenStreetMap
+  const osm = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }
+  );
+
+  // Citra satelit Esri
+  const satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri'
+    }
+  );
+
+  // Hillshade
+  const hillshade = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    {
+      maxZoom: 16,
+      attribution: 'Hillshade &copy; Esri'
+    }
+  );
+
+  // Terrain
+  const terrain = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+    {
+      maxZoom: 13,
+      attribution: 'Terrain &copy; Esri'
+    }
+  );
+
+  // Topografi
+  const topo = L.tileLayer(
+    'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 17,
+      attribution:
+        'Map data: OpenStreetMap contributors, SRTM | OpenTopoMap'
+    }
+  );
+
+  satellite.addTo(map);
+
+  const boundaries = L.featureGroup().addTo(map);
+
+  let regionFeatures = [];
+
+  function formatNumber(value, digits = 2) {
+    return Number(value).toLocaleString('id-ID', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+
+  function getName(feature) {
+    const p = feature.properties || {};
+
+    return String(
+      p.name ||
+      p.nama ||
+      p.NAMA ||
+      p.region ||
+      p.wilayah ||
+      p.title ||
+      ''
+    ).toLowerCase();
+  }
+
+  function updateSummary(region) {
+
+    const fallback = {
+      kth: {
+        area: 726.558,
+        tree: 96.96,
+        name: 'KTH Balai Gadang'
+      },
+
+      hkm: {
+        area: 734.847,
+        tree: 99.53,
+        name: 'Usulan HKm Saiba'
+      }
+    };
+
+    if (region === 'all') {
+      document.getElementById('areaValue').textContent =
+        '2 kawasan';
+
+      document.getElementById('treeValue').textContent = '—';
+      document.getElementById('treeAreaValue').textContent = '—';
+      document.getElementById('otherAreaValue').textContent = '—';
+
+      document.getElementById('regionLabel').textContent =
+        'Pilih satu kawasan untuk melihat ringkasan luas dan tutupan pohon ESA WorldCover 2021.';
+
+      return;
+    }
+
+    const data = fallback[region];
+
+    if (!data) return;
+
+    const treeArea = data.area * data.tree / 100;
+    const otherArea = data.area - treeArea;
+
+    document.getElementById('areaValue').textContent =
+      formatNumber(data.area) + ' ha';
+
+    document.getElementById('treeValue').textContent =
+      formatNumber(data.tree) + '%';
+
+    document.getElementById('treeAreaValue').textContent =
+      formatNumber(treeArea) + ' ha';
+
+    document.getElementById('otherAreaValue').textContent =
+      formatNumber(otherArea) + ' ha';
+
+    document.getElementById('regionLabel').textContent =
+      data.name +
+      '. Luas tutupan pohon dan area selain tutupan pohon merupakan perkiraan berdasarkan luas kawasan dan persentase tutupan pohon.';
+  }
+
+  function chooseRegion(region) {
+
+    boundaries.clearLayers();
+
+    const selected = region === 'all'
+      ? regionFeatures
+      : regionFeatures.filter(function(feature) {
+
+          const name = getName(feature);
+
+          if (region === 'kth') {
+            return name.includes('kth') ||
+                   name.includes('balai');
+          }
+
+          return name.includes('hkm') ||
+                 name.includes('saiba');
+        });
+
+    selected.forEach(function(feature) {
+
+      const layer = L.geoJSON(feature, {
+        style: {
+          color: '#168568',
+          weight: 3,
+          fillColor: '#36a883',
+          fillOpacity: 0.12
+        }
+      });
+
+      const name =
+        feature.properties?.name ||
+        feature.properties?.nama ||
+        'Kawasan';
+
+      layer.bindPopup('<b>' + name + '</b>');
+
+      layer.addTo(boundaries);
+    });
+
+    const bounds = boundaries.getBounds();
+
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [18, 18],
+        maxZoom: 15
+      });
+    }
+
+    updateSummary(region);
+  }
+
+  // Ambil geometri kawasan dari kth_map.html.
+  // Kedua file harus berada dalam folder GitHub Pages yang sama.
+  try {
+
+    const response = await fetch('./kth_map.html', {
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error('kth_map.html tidak dapat diakses');
+    }
+
+    const source = await response.text();
+
+    const geoMatch = source.match(
+      /const\s+GEO\s*=\s*(\{[\s\S]*?\});\s*(?:const|let|var)\s/m
+    );
+
+    if (geoMatch) {
+
+      const geo = JSON.parse(geoMatch[1]);
+
+      if (geo.type === 'FeatureCollection') {
+        regionFeatures = geo.features || [];
+      } else if (geo.type === 'Feature') {
+        regionFeatures = [geo];
+      } else if (geo.features) {
+        regionFeatures = geo.features;
+      }
+    }
+
+    if (!regionFeatures.length) {
+      throw new Error('Geometri kawasan tidak ditemukan');
+    }
+
+    chooseRegion('all');
+
+  } catch (error) {
+
+    document.getElementById('regionLabel').textContent =
+      'Batas kawasan gagal dimuat. Pastikan file ini berada dalam folder yang sama dengan kth_map.html di GitHub Pages. Detail: ' +
+      error.message;
+  }
+
+  // Kontrol pilihan peta dasar.
+  L.control.layers(
+    {
+      'Citra satelit': satellite,
+      'OpenStreetMap': osm,
+      'Hillshade / relief': hillshade,
+      'Terrain / elevasi visual': terrain,
+      'Topografi & kontur': topo
+    },
+    {
+      'Batas kawasan': boundaries
+    },
+    {
+      collapsed: false
+    }
+  ).addTo(map);
+
+  document.getElementById('showRegion')
+    .addEventListener('click', function() {
+      chooseRegion(
+        document.getElementById('regionSelect').value
+      );
+    });
+
+  document.getElementById('regionSelect')
+    .addEventListener('change', function() {
+      chooseRegion(this.value);
+    });
+
+  document.getElementById('printBtn')
+    .addEventListener('click', function() {
+      window.print();
+    });
+
+})();
+</script>
+
+</body>
+  </html>
